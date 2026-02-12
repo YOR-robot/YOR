@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="yor_header.jpeg" alt="YOR - Your Own Robot" width="100%">
+</p>
+
 # YOR - Your Own Robot
 
 **Coming Soon**
