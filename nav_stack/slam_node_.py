@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
-"""
-Refactored SLAM node that mirrors the structure of zed_pub_node.py:
-  - Wraps all shared state in a Slam class (latest map, grid, goal, path, ZED stream).
-  - Spins background threads for mapping (MapManager), visualization (Viser), and planning (A*).
-  - Keeps the behavior of slam_node.py while making the runtime flow clearer.
-"""
+
+"""SLAM node for ZED camera mapping and navigation."""
 
 import argparse
 import sys
@@ -57,6 +53,7 @@ def xyzw_xyz_to_matrix(qt7):
 
 
 class ZedSub:
+    """Wrapper around Subscriber to get the latest RGB image, depth map, pose, and point cloud from the ZED camera, with optional Z-up to Y-up conversion."""
     def __init__(self, host: str = "192.168.1.11", port: int = ZED_PUB_PORT, up_axis: str = "y"):
         self._up_axis = str(up_axis).lower()
         if self._up_axis not in ("y", "z"):
@@ -76,9 +73,11 @@ class ZedSub:
 
 
     def _zup_to_yup_transform(self, T: np.ndarray) -> np.ndarray:
+        """Convert a 4x4 transformation matrix from Z-up to Y-up by applying the appropriate rotation."""
         return self._zup_to_yup @ T @ self._zup_to_yup.T
 
     def _zup_to_yup_pose(self, pose_qt: np.ndarray) -> np.ndarray:
+        """Convert pose from Z-up to Y-up by applying the appropriate transformation. Expects pose_qt as [qx, qy, qz, qw, tx, ty, tz]."""
         pose_qt = np.asarray(pose_qt, dtype=np.float32).reshape(-1)
         if pose_qt.size < 7:
             return pose_qt
@@ -93,11 +92,13 @@ class ZedSub:
         return np.concatenate([quat_y, trans_y])
     
     def _sub_get(self, topic):
+        """Thread-safe get for subscriber topics."""
         with self._sub_lock:
             return self._sub[topic]
 
 
     def _zup_to_yup_points(self, pcd):
+        """Convert point cloud from Z-up to Y-up by swapping axes. Expects shape (..., 3) or (..., N) with XYZ in the first 3 channels."""
         arr = np.asarray(pcd)
         if arr.ndim < 2 or arr.shape[-1] < 3:
             return arr
@@ -130,6 +131,7 @@ class ZedSub:
         return pose_msg is not None
 
     def get_rgb_depth_pose(self):
+        """Get the latest RGB image, depth map, and pose. Pose is returned as [qx, qy, qz, qw, tx, ty, tz]."""
         img_msg = self._sub_get(IMAGE_TOPIC)
         depth_msg = self._sub_get(DEPTH_TOPIC)
         pose_msg = self._sub_get(POSE_TOPIC)
@@ -146,6 +148,7 @@ class ZedSub:
         return image_rgb, depth_m, pose_qt
     
     def get_pcd_pose(self):
+        """Get the latest point cloud and pose. Pose is returned as [qx, qy, qz, qw, tx, ty, tz]."""
         pcd_msg = self._sub_get(PCD_TOPIC)
         pose_msg = self._sub_get(POSE_TOPIC)
 
@@ -160,6 +163,7 @@ class ZedSub:
         return pcd, pose_qt
     
     def get_pose(self):
+        """Get the latest pose as (translation, yaw, full_transform). Translation is (x, z) in world coordinates, yaw is in radians."""
         pose_msg = self._sub_get(POSE_TOPIC)
         base_quat = pose_msg[0:7]
         base_transform = xyzw_xyz_to_matrix(base_quat)
@@ -333,6 +337,7 @@ class Slam:
     def _filter_floating_points(self, pts: np.ndarray, cols: np.ndarray | None,
                             voxel_m: float | None = None, min_pts: int = 3,
                             floor_y: float | None = None, floor_band_m: float = 0.25):
+        """Filter out floating points from the static map by voxelizing and keeping only voxels with enough points, while always keeping points close to the floor."""
         if pts is None or len(pts) == 0:
             return pts, cols
         if voxel_m is None:
@@ -357,9 +362,6 @@ class Slam:
         if cols is None:
             return pts_f, None
         return pts_f, cols[keep]
-
-
-
         
     def _init_rerun(self):
         try:
@@ -368,6 +370,7 @@ class Slam:
             print(f"[slam_node_new] rerun_init failed (continuing): {e}", file=sys.stderr)
 
     def _wait_for_datastream(self) -> bool:
+        """Wait for the ZED datastream to be ready, with an optional timeout."""
         t0 = time.time()
         while not self.datastream.ready():
             if self.duration_s and (time.time() - t0) >= self.duration_s:
@@ -380,6 +383,7 @@ class Slam:
         return True
 
     def _start_mapping(self):
+        """Start the mapping thread, optionally loading from a previous map."""
         if self.load_map and self.map_path:
             try:
                 self.map_manager.start_mapping(self.datastream, load=True, map_path=self.map_path)
@@ -393,6 +397,7 @@ class Slam:
         print("[slam_node_new] Mapping started. Press 'q' to stop mapping and freeze the static map.")
 
     def _on_freeze_and_nav(self):
+        """Handle the 'q' key: stop mapping, freeze the static map, and start the planning stack."""
         if not self.map_loaded:
             print("\n[slam_node_new] 'q' pressed: stopping mapping and freezing static map.")
             self.map_manager.stop_mapping()
@@ -420,6 +425,7 @@ class Slam:
             print(f"[slam_node_new] Failed to set planner goal: {e}")
 
     def _start_planning_stack(self) -> bool:
+        """Start the grid and planner threads if they aren't already running. Returns True if the planner is ready to accept goals."""
         if self.grid_thread is not None and self.planner is not None:
             return True
 
@@ -461,6 +467,9 @@ class Slam:
         )
 
         def ensure_nav_started():
+            """Start the planner thread if it hasn't been started yet. 
+                This is called lazily on the first set_goal_world call, 
+                which allows us to defer starting the planner until we have a goal and the latest grid available."""
             if self.nav_initialized:
                 return
 
@@ -481,6 +490,7 @@ class Slam:
         _orig_set_goal_world = self.planner.set_goal_world
 
         def _set_goal_world_autostart(xw: float, zw: float):
+            """Wrapper around planner.set_goal_world that also ensures the planner thread is started and the latest goal is stored."""
             self.latest_goal = (float(xw), float(zw))
             ensure_nav_started()
             _orig_set_goal_world(xw, zw)
@@ -556,6 +566,7 @@ class Slam:
 
 
     def _densify_path(self, path_world):
+        """Densify the path by adding intermediate waypoints so that consecutive points are at most self.path_step_m apart."""
         if not path_world or len(path_world) < 2:
             return path_world
         step = self.path_step_m
@@ -579,6 +590,7 @@ class Slam:
         return out
 
     def _state_monitor_loop(self):
+        """Background loop to keep latest map, grid, and path updated for the main thread and RPC calls."""
         while self.running:
             try:
                 self.latest_map = self.map_manager.get_map()
@@ -600,6 +612,7 @@ class Slam:
             time.sleep(0.2)
 
     def _reset_cone_e_client(self):
+        """Reset the ConeE RPC client (e.g. after EFSM / stuck REQ socket) while holding the RPC lock."""
         try:
             # if RPCClient has a close(), call it; otherwise just drop it
             if hasattr(self.cone_e_client, "close"):
@@ -610,6 +623,7 @@ class Slam:
 
 
     def _path_sender_loop(self):
+        """Background loop to send the latest path to ConeE via RPC whenever it changes."""
         last_sent = None
         last_fail_t = 0.0
 

@@ -416,6 +416,7 @@ class LocalGrid2D:
 
 
     def _to_idx(self, xz: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Convert Nx2 [x,z] to grid indices (iz, ix). Returns two (M,) int arrays. Points outside the grid are filtered out."""
         if xz.size == 0:
             return _EMPTY_I, _EMPTY_I
 
@@ -450,6 +451,7 @@ class LocalGrid2D:
         return iz, ix
     
     def _center_window_on(self, xw: float, zw: float):
+        """Center the WORLD-aligned window on (xw, zw). Only call if we don't yet have a window."""
         cs = self.p.res_m
         self.x0    = xw - 0.5 * self.W * cs
         self.z_top = zw + 0.5 * self.H * cs
@@ -457,6 +459,7 @@ class LocalGrid2D:
         self._have_window = True
 
     def _slide_window_if_needed(self, xw: float, zw: float):
+        """Slide the WORLD-aligned window to recenter on (xw, zw) if we've moved more than recenter_thresh_m."""
         cs = self.p.res_m
         # How many whole cells did we move? (rows increase downward as z decreases)
         dc = int(np.round((xw - self._cx) / cs))
@@ -593,6 +596,7 @@ class LocalGrid2DThread:
         self._last_T_world_robot = None
 
     def start(self):
+        """Start the worker thread. Safe to call multiple times."""
         if self._thr and self._thr.is_alive():
             return
         self._stop_evt.clear()
@@ -600,12 +604,14 @@ class LocalGrid2DThread:
         self._thr.start()
 
     def stop(self, join_timeout: Optional[float] = 1.5):
+        """Stop the worker thread and wait for it to finish."""
         self._stop_evt.set()
         if self._thr:
             self._thr.join(timeout=join_timeout)
         self._thr = None
 
     def get_grid(self) -> Tuple[Optional[np.ndarray], Optional[Dict], Optional[np.ndarray]]:
+        """Get the latest grid, meta, and T_world_robot. Returns (grid, meta, T_world_robot) or (None, None, None) if not ready."""
         with self._lock:
             return (
                 None if self._last_grid is None else self._last_grid.copy(),
@@ -616,6 +622,7 @@ class LocalGrid2DThread:
 
     # ---------- internal ----------
     def _loop(self):
+        """Worker loop: fetch latest data, update grid, store result, sleep to control rate."""
         while not self._stop_evt.is_set():
             t0 = time.time()
 
@@ -707,6 +714,7 @@ class StaticGridWithLiveOverlayThread:
         self.overlay_keep_fraction = float(np.clip(overlay_keep_fraction, 0.0, 1.0))
 
     def start(self):
+        """Start the worker thread. Safe to call multiple times."""
         if self._thr and self._thr.is_alive():
             return
         self._stop_evt.clear()
@@ -714,12 +722,14 @@ class StaticGridWithLiveOverlayThread:
         self._thr.start()
 
     def stop(self, join_timeout: Optional[float] = 1.5):
+        """Stop the worker thread and wait for it to finish."""
         self._stop_evt.set()
         if self._thr:
             self._thr.join(timeout=join_timeout)
         self._thr = None
 
     def get_grid(self) -> Tuple[Optional[np.ndarray], Optional[Dict], Optional[np.ndarray]]:
+        """Get the latest grid, meta, and T_world_robot. Returns (grid, meta, T_world_robot) or (None, None, None) if not ready."""
         with self._lock:
             grid = None if self._last_grid is None else self._last_grid.copy()
             meta = None if self._last_meta is None else dict(self._last_meta)
@@ -731,6 +741,7 @@ class StaticGridWithLiveOverlayThread:
 
     # ---------- internal ----------
     def _loop(self):
+        """Worker loop: fetch latest data, overlay on static grid, store result, sleep to control rate."""
         while not self._stop_evt.is_set():
             t0 = time.time()
             try:
@@ -751,6 +762,7 @@ class StaticGridWithLiveOverlayThread:
                 self._rate.sleep()
 
     def _compose_grid(self):
+        """Overlay latest pointcloud on the static grid to produce a new grid and cost map."""
         grid = self.base_grid.copy()
         cost_map = self.base_cost_map.copy()
         meta = dict(self.base_meta)
@@ -785,6 +797,7 @@ class StaticGridWithLiveOverlayThread:
         return grid, meta, cost_map, T_wr
 
     def _pcd_to_world_points(self, pcd, pose_qt: np.ndarray) -> Optional[np.ndarray]:
+        """Convert a point cloud and pose (quaternion + translation) to world XYZ points."""
         arr = np.asarray(pcd)
         if arr.ndim == 3 and arr.shape[2] >= 3:
             xyz = arr[..., :3].reshape(-1, 3).astype(np.float32, copy=False)
@@ -810,6 +823,7 @@ class StaticGridWithLiveOverlayThread:
         return pts_world
 
     def _downsample_points(self, pts_world: np.ndarray) -> np.ndarray:
+        """Randomly keep only a fraction of the points to speed up overlay processing."""
         frac = self.overlay_keep_fraction
         if not (0.0 < frac < 1.0):
             return pts_world
@@ -822,6 +836,7 @@ class StaticGridWithLiveOverlayThread:
         return pts_world[mask]
 
     def _overlay_masks(self, pts_world: np.ndarray):
+        """Compute boolean masks of occupied and inflated cells from the given world points."""
         dy = pts_world[:, 1] - self.floor_y
         is_obst = (dy >= self.params.min_obst_h_m) & (dy <= self.params.max_obst_h_m)
         if not np.any(is_obst):
@@ -852,6 +867,7 @@ class StaticGridWithLiveOverlayThread:
         return occ_mask.astype(bool), infl_mask.astype(bool)
 
     def _to_idx_world(self, xz: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Convert Nx2 [x,z] in WORLD to grid indices (iz, ix). Returns two (M,) int arrays. Points outside the grid are filtered out."""
         if xz.size == 0:
             return _EMPTY_I, _EMPTY_I
         x, z = xz[:, 0], xz[:, 1]
@@ -886,15 +902,17 @@ def make_grid2d_thread_from_globalmap(
     if T_robot_cam is None:
         T_robot_cam = np.eye(4, dtype=np.float32)
 
-    def _se3_from_qt(qt: np.ndarray) -> np.ndarray:
-        from scipy.spatial.transform import Rotation as R
-        qx, qy, qz, qw, tx, ty, tz = qt
-        Rm = R.from_quat([qx, qy, qz, qw]).as_matrix().astype(np.float32)
-        T = np.eye(4, dtype=np.float32)
-        T[:3, :3] = Rm; T[:3, 3] = [tx, ty, tz]
-        return T
+    # def _se3_from_qt(qt: np.ndarray) -> np.ndarray:
+    #     """Convert a 7D pose (qx, qy, qz, qw, tx, ty, tz) to a 4x4 SE(3) transformation matrix."""
+    #     from scipy.spatial.transform import Rotation as R
+    #     qx, qy, qz, qw, tx, ty, tz = qt
+    #     Rm = R.from_quat([qx, qy, qz, qw]).as_matrix().astype(np.float32)
+    #     T = np.eye(4, dtype=np.float32)
+    #     T[:3, :3] = Rm; T[:3, 3] = [tx, ty, tz]
+    #     return T
 
     def _fetch():
+        """Fetch the latest point cloud and pose from the datastream, convert to world points and T_world_robot."""
         # 1) Cloud
         cloud = mapmgr.get_map()
         if cloud is None:
@@ -962,12 +980,14 @@ class PathPlanner:
         return 1.9 * float(np.hypot(a[0] - b[0], a[1] - b[1]))
 
     def _cell_is_free(self, r: int, c: int) -> bool:
+        """Check if the cell at (r, c) is free (not an obstacle)."""
         if not (0 <= r < self.grid.shape[0] and 0 <= c < self.grid.shape[1]):
             return False
         v = self.grid[r, c]
         return (v == 0.0) if self.treat_unknown_as_obstacle else (v < 1.0)
 
     def get_neighbors(self, node: Tuple[int, int]) -> List[Tuple[int, int, float]]:
+        """Get valid neighboring cells of the given node, along with their move costs."""
         # Base move costs (grid steps)
         dirs = [
             (-1, 0, 1.0), (1, 0, 1.0), (0, -1, 1.0), (0, 1, 1.0),
@@ -985,10 +1005,12 @@ class PathPlanner:
         return out
 
     def _dist_m(self, a: Tuple[int, int], b: Tuple[int, int]) -> float:
+        """Euclidean distance in meters between two grid cells."""
         return self.grid_size * float(np.hypot(a[0] - b[0], a[1] - b[1]))
 
     @staticmethod
     def _bresenham_cells(a: Tuple[int, int], b: Tuple[int, int]) -> List[Tuple[int, int]]:
+        """Bresenham's line algorithm to get all cells intersected by the line from a to b."""
         r0, c0 = a; r1, c1 = b
         x0, y0, x1, y1 = int(c0), int(r0), int(c1), int(r1)
         dx = abs(x1 - x0); dy = -abs(y1 - y0)
@@ -1007,6 +1029,7 @@ class PathPlanner:
         return cells
 
     def _line_is_free(self, a: Tuple[int, int], b: Tuple[int, int]) -> bool:
+        """Check if the line segment from a to b is free of obstacles using Bresenham's algorithm."""
         for r, c in self._bresenham_cells(a, b):
             if not (0 <= r < self.grid.shape[0] and 0 <= c < self.grid.shape[1]):
                 return False
@@ -1100,6 +1123,8 @@ class PathPlanner:
         return sparse
 
     def plan(self, start: Tuple[int, int], goal: Tuple[int, int]) -> List[Tuple[int, int]]:
+        """Plan a path from start to goal using A* with the defined constraints. Returns a list of grid cells (r, c) from start to goal, or an empty list if no path is found."""
+
         open_set = []
         heapq.heappush(open_set, (self.heuristic(start, goal), 0.0, start))
         came_from: Dict[Tuple[int, int], Tuple[int, int]] = {}
@@ -1137,6 +1162,7 @@ class PathPlanner:
 # ---- Helpers: grid codes -> float map expected by PathPlanner ----
 # FREE=0.0, UNKNOWN=0.5, OCCUPIED/INFLATED=1.0
 def gridcodes_to_float(grid_codes: np.ndarray) -> np.ndarray:
+    """Convert grid codes (int8: 0=FREE, 1=OCCUPIED, 2=INFLATED, -1=UNKNOWN) to float32 cost map for PathPlanner."""
     g = np.zeros_like(grid_codes, dtype=np.float32)
     g[grid_codes < 0] = 0.5   # UNKNOWN
     g[grid_codes >= 1] = 1.0  # OCCUPIED or INFLATED
@@ -1146,6 +1172,7 @@ def gridcodes_to_float(grid_codes: np.ndarray) -> np.ndarray:
 # ---- Index <-> world-xz conversion (ego-centric grid: robot ~ center cell) ----
 def rc_to_world_xz(r: int, c: int, H: int, W: int, cell_m: float,
                    T_world_robot: np.ndarray) -> Tuple[float, float]:
+    """Convert grid indices (r, c) to world coordinates (x, z) using the robot-centered grid parameters and T_world_robot."""
     # Grid indices relative to robot-centered origin (row down, col right).
     # Convention: +x = right, +z = forward. row increases downward in the image,
     # so we flip sign for z.
@@ -1159,6 +1186,7 @@ def rc_to_world_xz(r: int, c: int, H: int, W: int, cell_m: float,
 
 def world_xz_to_rc(wx: float, wz: float, H: int, W: int, cell_m: float,
                    T_world_robot: np.ndarray) -> Tuple[int, int]:
+    """Convert world coordinates (wx, wz) to grid indices (r, c) using the robot-centered grid parameters and T_world_robot."""
     # Inverse transform world→robot
     T_robot_world = np.linalg.inv(T_world_robot)
     p_w = np.array([wx, 0.0, wz, 1.0], dtype=np.float32)
@@ -1169,6 +1197,7 @@ def world_xz_to_rc(wx: float, wz: float, H: int, W: int, cell_m: float,
     return r, c
 
 def rc_to_world_xz_world(r: int, c: int, meta: Dict) -> Tuple[float, float]:
+    """Convert grid indices (r, c) to world coordinates (x, z) using the meta parameters for a world-aligned grid."""
     cs   = float(meta["cell_size_m"])
     x0   = float(meta["x0"])
     ztop = float(meta["z_top"])
@@ -1177,6 +1206,7 @@ def rc_to_world_xz_world(r: int, c: int, meta: Dict) -> Tuple[float, float]:
     return xw, zw
 
 def world_xz_to_rc_world(wx: float, wz: float, meta: Dict) -> Tuple[int, int]:
+    """Convert world coordinates (wx, wz) to grid indices (r, c) using the meta parameters for a world-aligned grid."""
     cs   = float(meta["cell_size_m"])
     x0   = float(meta["x0"])
     ztop = float(meta["z_top"])
@@ -1297,6 +1327,7 @@ class AStarPlannerThread:
 
     # --- public API ---
     def set_goal_world(self, x_world: float, z_world: float):
+        """Set the current goal (world X,Z) for the planner to replan towards."""
         with self._lock:
             self.goal_world = (float(x_world), float(z_world))
             # print(self.goal_world)
@@ -1313,6 +1344,7 @@ class AStarPlannerThread:
 
 
     def get_latest_path_world(self) -> List[Tuple[float, float]]:
+        """Return the most recent planned path as a list of (x, z) points in world coordinates."""
         # Convert cached rc path to world xz using the latest pose/meta
         with self._lock:
             path_rc = list(self._latest_path_rc)

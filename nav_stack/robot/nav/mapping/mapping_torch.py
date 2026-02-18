@@ -651,9 +651,9 @@ class MapManager:
 
 # We will poll zedsub at 10hz to get latest_pcd_pose and apply the pose transformation before adding it to the static map and updating the global map variable.
 
-# IS THIS TOO CONVOLUTED, IDK????? EHHHHHH SHOULD WORK FINE FOR NOW
+# IS THIS TOO CONVOLUTED, SHOULD WE JUST INTEGRATE THIS INTO THE MAP MANAGER?
 
-# It was too convoluted, bye bye globul map manager 
+# It was too convoluted, no globul map manager 
 # '''
 
 # class GlobalMapManager:
