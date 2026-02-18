@@ -76,8 +76,8 @@ def start_viser_server(host: str = "0.0.0.0", port: int = 8099):
     server = viser.ViserServer(host=host, port=port)
     try:
         server.scene.set_up_direction("+y")
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[Viser] Failed to set up direction: {e}")
 
     print(f"[Viser] http://{host}:{port}")
     return server
@@ -286,8 +286,8 @@ class ViserMirrorThread:
         )
         try:
             self._log_panel.content = text
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[Viser] Failed to update log panel content: {e}")
 
     # ----------------------------- query marker API -----------------------------
     def set_query_marker_world(
@@ -321,8 +321,8 @@ class ViserMirrorThread:
             grid_codes, meta, _Twr = (None, {}, None)
             try:
                 grid_codes, meta, _Twr = self.grid_thread.get_grid()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[Viser] Failed to get grid: {e}")
 
             if grid_codes is not None and meta is not None:
                 if self._grid_dt <= 0.0 or (t0 - self._last_grid_t) >= self._grid_dt:
@@ -531,8 +531,8 @@ class ViserMirrorThread:
                     depth_test=False,
                     anchor="bottom-center",
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[Viser] Failed to clear query label: {e}")
 
     def _mirror_nav_goal_marker_once(self):
         marker = None
@@ -565,8 +565,8 @@ class ViserMirrorThread:
                     depth_test=False,
                     anchor="bottom-center",
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[Viser] Failed to clear nav goal label: {e}")
             return
 
         nx, ny, nz, nlabel = marker
@@ -604,8 +604,8 @@ class ViserMirrorThread:
                     depth_test=False,
                     anchor="bottom-center",
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[Viser] Failed to clear nav goal label: {e}")
             return
 
         mx, my, mz, mlabel = marker
@@ -644,8 +644,8 @@ class ViserMirrorThread:
                     depth_test=False,
                     anchor="bottom-center",
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[Viser] Failed to clear query label: {e}")
 
     # ----------------------------- robot -----------------------------
     def _mirror_robot_once(self):
@@ -811,8 +811,8 @@ class ViserMirrorThread:
                             if yaw is None:
                                 yaw = self._yaw_from_T(T_wr)
                     return trans, yaw, T_wr, None
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[ViserBridge] Failed to extract pose: {e}")
 
         # Case B: dict format
         if isinstance(out, dict):
@@ -835,8 +835,8 @@ class ViserMirrorThread:
                     if bp.size >= 4:
                         trans = bp[:3]
                         yaw = float(bp[3])
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[ViserBridge] Failed to extract base_pose: {e}")
 
             if trans is None and T_wr is not None:
                 trans = T_wr[:3, 3].copy()
@@ -925,8 +925,8 @@ class ViserMirrorThread:
             )
             if self._static_map_once:
                 self._static_map_logged = True
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[ViserBridge] Failed to mirror map points: {e}")
         finally:
             self._last_map_t = t0
 

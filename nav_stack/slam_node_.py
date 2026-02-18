@@ -117,14 +117,11 @@ class ZedSub:
     
     def ready(self) -> bool:
         """Return True once at least the pose topic has been received."""
-        try:
-            ready_attr = getattr(self._sub, "ready", None)
-            if callable(ready_attr):
-                return bool(ready_attr())
-            if ready_attr is not None:
-                return bool(ready_attr)
-        except Exception:
-            pass
+        ready_attr = getattr(self._sub, "ready", None)
+        if callable(ready_attr):
+            return bool(ready_attr())
+        if ready_attr is not None:
+            return bool(ready_attr)
 
         try:
             pose_msg = self._sub_get(POSE_TOPIC)
@@ -303,17 +300,16 @@ class Slam:
     def stop(self):
         self.running = False
 
-        try:
-            self.map_manager.stop_mapping()
-            self.datastream.stop()
-            if self.grid_thread is not None:
-                self.grid_thread.stop()
-            if self.planner is not None:
-                self.planner.stop()
-            if self.viser_mirror is not None:
-                self.viser_mirror.stop()
-        except Exception:
-            pass
+
+        self.map_manager.stop_mapping()
+        self.datastream.stop()
+        if self.grid_thread is not None:
+            self.grid_thread.stop()
+        if self.planner is not None:
+            self.planner.stop()
+        if self.viser_mirror is not None:
+            self.viser_mirror.stop()
+
 
         # Optional save
         if self.save_map and self.map_path:
@@ -399,10 +395,8 @@ class Slam:
     def _on_freeze_and_nav(self):
         if not self.map_loaded:
             print("\n[slam_node_new] 'q' pressed: stopping mapping and freezing static map.")
-            try:
-                self.map_manager.stop_mapping()
-            except Exception:
-                pass
+            self.map_manager.stop_mapping()
+
             self.map_loaded = True
 
         if not self._start_planning_stack():
@@ -472,13 +466,11 @@ class Slam:
 
             print("\n[slam_node_new] Starting planner (auto).")
 
-            try:
-                global_map = self.map_manager.get_map()
-                if global_map is not None:
-                    pts_np_local, cols_np_local = global_map.cpu_numpy()
-                    rr.log("world/global_map", rr.Points3D(positions=pts_np_local, colors=cols_np_local))
-            except Exception:
-                pass
+
+            global_map = self.map_manager.get_map()
+            if global_map is not None:
+                pts_np_local, cols_np_local = global_map.cpu_numpy()
+                rr.log("world/global_map", rr.Points3D(positions=pts_np_local, colors=cols_np_local))
 
             try:
                 self.planner.start()
@@ -556,8 +548,8 @@ class Slam:
                 _, meta, _ = self.grid_thread.get_grid()
                 if isinstance(meta, dict):
                     cell = float(meta.get("cell_size_m", cell))
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[slam_node_new] Failed to get cell_size_m: {e}")
 
         # Heuristic: ~2 cells per waypoint, clamped.
         return float(np.clip(2.0 * cell, 0.05, 0.15))
@@ -612,8 +604,8 @@ class Slam:
             # if RPCClient has a close(), call it; otherwise just drop it
             if hasattr(self.cone_e_client, "close"):
                 self.cone_e_client.close()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[slam_node_new] Failed to close cone_e_client: {e}")
         self.cone_e_client = RPCClient(self.cone_e_host, self.cone_e_port)
 
 

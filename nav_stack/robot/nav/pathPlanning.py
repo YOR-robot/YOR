@@ -50,9 +50,9 @@ def vlog(msg: str) -> None:
     if VISER_LOG_FN is not None:
         try:
             VISER_LOG_FN(msg)
-        except Exception:
+        except Exception as e:
             # Never let logging crash the robot
-            pass
+            print(f"[local_grid2d] Failed to log to Viser: {e}")
 
 
 
@@ -643,9 +643,9 @@ class LocalGrid2DThread:
                     self._last_t = t0
                     self._last_T_world_robot = T_world_robot
 
-            except Exception:
+            except Exception as e:
                 # Keep the worker alive on transient errors
-                pass
+                print(f"[local_grid2d] Failed to update grid: {e}")
 
             # rate control
             if self._rate is not None:
@@ -744,8 +744,8 @@ class StaticGridWithLiveOverlayThread:
                     self._last_meta = meta
                     self._last_cost_map = cost_map
                     self._last_T_world_robot = T_wr
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[local_grid2d] Failed to update grid: {e}")
 
             if self._rate is not None:
                 self._rate.sleep()
