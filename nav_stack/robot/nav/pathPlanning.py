@@ -10,7 +10,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Tuple, Optional, Callable
-import numpy as np, heapq, cv2
+import numpy as np, heapq
 import threading, time
 import rerun as rr
 import math
@@ -448,6 +448,38 @@ class LocalGrid2D:
         np.clip(ix, 0, self.W - 1, out=ix)
         np.clip(iz, 0, self.H - 1, out=iz)
         return iz, ix
+    
+    def _center_window_on(self, xw: float, zw: float):
+        cs = self.p.res_m
+        self.x0    = xw - 0.5 * self.W * cs
+        self.z_top = zw + 0.5 * self.H * cs
+        self._cx, self._cz = xw, zw
+        self._have_window = True
+
+    def _slide_window_if_needed(self, xw: float, zw: float):
+        cs = self.p.res_m
+        # How many whole cells did we move? (rows increase downward as z decreases)
+        dc = int(np.round((xw - self._cx) / cs))
+        dr = int(np.round((self._cz - zw) / cs))
+        if dc == 0 and dr == 0:
+            return
+        # Roll counts / masks and blank wrapped margins to UNKNOWN
+        if dr != 0:
+            self._counts = np.roll(self._counts, dr, axis=0)
+            self._seen_floor = np.roll(self._seen_floor, dr, axis=0)
+            self._inflated   = np.roll(self._inflated,   dr, axis=0)
+            (self._counts[:dr, :], self._seen_floor[:dr, :], self._inflated[:dr, :]) = (0, 0, 0) if dr > 0 else (self._counts[dr:, :]*0, self._seen_floor[dr:, :]*0, self._inflated[dr:, :]*0)
+
+        if dc != 0:
+            self._counts = np.roll(self._counts, dc, axis=1)
+            self._seen_floor = np.roll(self._seen_floor, dc, axis=1)
+            self._inflated   = np.roll(self._inflated,   dc, axis=1)
+            (self._counts[:, :dc], self._seen_floor[:, :dc], self._inflated[:, :dc]) = (0, 0, 0) if dc > 0 else (self._counts[:, dc:]*0, self._seen_floor[:, dc:]*0, self._inflated[:, dc:]*0)
+
+        # Update window origin to match the roll
+        self.x0    += dc * cs
+        self.z_top += dr * cs * (-1)  # dr rows down = z decreases
+        self._cx, self._cz = xw, zw
 
 
 
@@ -469,38 +501,6 @@ def render_grid_rgb(grid: np.ndarray, flip_vertical: bool = True) -> np.ndarray:
     if flip_vertical:
         img = np.flipud(img).copy()
     return img
-
-def _center_window_on(self, xw: float, zw: float):
-    cs = self.p.res_m
-    self.x0    = xw - 0.5 * self.W * cs
-    self.z_top = zw + 0.5 * self.H * cs
-    self._cx, self._cz = xw, zw
-    self._have_window = True
-
-def _slide_window_if_needed(self, xw: float, zw: float):
-    cs = self.p.res_m
-    # How many whole cells did we move? (rows increase downward as z decreases)
-    dc = int(np.round((xw - self._cx) / cs))
-    dr = int(np.round((self._cz - zw) / cs))
-    if dc == 0 and dr == 0:
-        return
-    # Roll counts / masks and blank wrapped margins to UNKNOWN
-    if dr != 0:
-        self._counts = np.roll(self._counts, dr, axis=0)
-        self._seen_floor = np.roll(self._seen_floor, dr, axis=0)
-        self._inflated   = np.roll(self._inflated,   dr, axis=0)
-        (self._counts[:dr, :], self._seen_floor[:dr, :], self._inflated[:dr, :]) = (0, 0, 0) if dr > 0 else (self._counts[dr:, :]*0, self._seen_floor[dr:, :]*0, self._inflated[dr:, :]*0)
-
-    if dc != 0:
-        self._counts = np.roll(self._counts, dc, axis=1)
-        self._seen_floor = np.roll(self._seen_floor, dc, axis=1)
-        self._inflated   = np.roll(self._inflated,   dc, axis=1)
-        (self._counts[:, :dc], self._seen_floor[:, :dc], self._inflated[:, :dc]) = (0, 0, 0) if dc > 0 else (self._counts[:, dc:]*0, self._seen_floor[:, dc:]*0, self._inflated[:, dc:]*0)
-
-    # Update window origin to match the roll
-    self.x0    += dc * cs
-    self.z_top += dr * cs * (-1)  # dr rows down = z decreases
-    self._cx, self._cz = xw, zw
 
 # ---- Internal utilities ------------------------------------------------------
 _EMPTY_I = np.empty((0,), dtype=np.int32)
