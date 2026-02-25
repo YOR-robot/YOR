@@ -32,9 +32,9 @@ DEPTH_TOPIC = "zed/depth"
 PCD_TOPIC = "zed/pcd"
 ZED_PUB_PORT = 6000
 
-# RPC from SLAM -> ConeE (follow_path via RPC)
-CONE_E_RPC_HOST = "192.168.1.10" # 192.168.1.10 for new cone_e and 194 for old cone_e
-CONE_E_RPC_PORT = 5557
+# RPC from SLAM -> YOR (follow_path via RPC)
+yor_E_RPC_HOST = "192.168.1.10" # 192.168.1.10 for new yor_e and 194 for old yor_e
+yor_E_RPC_PORT = 5557
 
 def xyzw_xyz_to_matrix(qt7):
     """
@@ -179,7 +179,7 @@ class Slam:
     Shared SLAM container:
       - Holds latest ZED connection, map, grid, goal, and path.
       - Spawns threads for mapping (MapManager), visualization (Viser), and planning (A*).
-      - Keeps ConeE RPC streaming updated paths.
+      - Keeps YOR RPC streaming updated paths.
     """
 
     def __init__(
@@ -190,8 +190,8 @@ class Slam:
         load_map: bool,
         save_map: bool,
         map_path: Optional[str],
-        cone_e_host: str = CONE_E_RPC_HOST,
-        cone_e_port: int = CONE_E_RPC_PORT,
+        yor_e_host: str = yor_E_RPC_HOST,
+        yor_e_port: int = yor_E_RPC_PORT,
         zed_host: str = "127.0.0.1",
         zed_port: int = ZED_PUB_PORT,
         zed_up_axis: str = "y",
@@ -205,10 +205,10 @@ class Slam:
 
         self.datastream = ZedSub(host=zed_host, port=zed_port, up_axis=zed_up_axis)
         self.map_manager = MapManager()
-        self.cone_e_host = cone_e_host
-        self.cone_e_port = cone_e_port
-        self._cone_rpc_lock = threading.Lock()
-        self.cone_e_client = RPCClient(self.cone_e_host, self.cone_e_port)
+        self.yor_e_host = yor_e_host
+        self.yor_e_port = yor_e_port
+        self._yor_rpc_lock = threading.Lock()
+        self.yor_e_client = RPCClient(self.yor_e_host, self.yor_e_port)
         self.server = start_viser_server(host="0.0.0.0", port=8099)
         self.path_step_m = None if path_step_m is None else max(0.0, float(path_step_m))
 
@@ -249,8 +249,8 @@ class Slam:
 
         def preview_source():
             # IMPORTANT: use same lock to avoid EFSM / REQ socket clashes
-            with self._cone_rpc_lock:
-                return self.cone_e_client.get_nav_debug()
+            with self._yor_rpc_lock:
+                return self.yor_e_client.get_nav_debug()
         self._preview_source = preview_source
         self.viser_mirror: Optional[ViserMirrorThread] = None
         self.path_thread: Optional[threading.Thread] = None
@@ -611,19 +611,19 @@ class Slam:
 
             time.sleep(0.2)
 
-    def _reset_cone_e_client(self):
-        """Reset the ConeE RPC client (e.g. after EFSM / stuck REQ socket) while holding the RPC lock."""
+    def _reset_yor_e_client(self):
+        """Reset the YOR RPC client (e.g. after EFSM / stuck REQ socket) while holding the RPC lock."""
         try:
             # if RPCClient has a close(), call it; otherwise just drop it
-            if hasattr(self.cone_e_client, "close"):
-                self.cone_e_client.close()
+            if hasattr(self.yor_e_client, "close"):
+                self.yor_e_client.close()
         except Exception as e:
-            print(f"[slam_node_new] Failed to close cone_e_client: {e}")
-        self.cone_e_client = RPCClient(self.cone_e_host, self.cone_e_port)
+            print(f"[slam_node_new] Failed to close yor_e_client: {e}")
+        self.yor_e_client = RPCClient(self.yor_e_host, self.yor_e_port)
 
 
     def _path_sender_loop(self):
-        """Background loop to send the latest path to ConeE via RPC whenever it changes."""
+        """Background loop to send the latest path to YOR via RPC whenever it changes."""
         last_sent = None
         last_fail_t = 0.0
 
@@ -654,8 +654,8 @@ class Slam:
 
             # ---- RPC call (REQ sockets must be serialized) ----
             try:
-                with self._cone_rpc_lock:
-                    self.cone_e_client.follow_path(path_dense)
+                with self._yor_rpc_lock:
+                    self.yor_e_client.follow_path(path_dense)
                 last_sent = list(path_dense)
                 self.latest_path = path_dense
 
@@ -671,8 +671,8 @@ class Slam:
                 # EFSM / stuck REQ socket -> recreate client
                 if "Operation cannot be accomplished in current state" in msg:
                     print("[slam_node_new] RPC socket stuck (EFSM). Resetting RPCClient...")
-                    with self._cone_rpc_lock:
-                        self._reset_cone_e_client()
+                    with self._yor_rpc_lock:
+                        self._reset_yor_e_client()
 
                 # allow retry later
                 last_sent = None
@@ -720,16 +720,16 @@ def main():
         help="optional .npz path to save/load map",
     )
     parser.add_argument(
-        "--cone-e-host",
+        "--yor-e-host",
         type=str,
-        default=CONE_E_RPC_HOST,
-        help="ConeE RPC host (follow_path via RPC)",
+        default=yor_E_RPC_HOST,
+        help="YOR RPC host (follow_path via RPC)",
     )
     parser.add_argument(
-        "--cone-e-port",
+        "--yor-e-port",
         type=int,
-        default=CONE_E_RPC_PORT,
-        help="ConeE RPC port (follow_path via RPC)",
+        default=yor_E_RPC_PORT,
+        help="YOR RPC port (follow_path via RPC)",
     )
     parser.add_argument(
         "--path-step-m",
@@ -753,8 +753,8 @@ def main():
         load_map=args.load,
         save_map=args.save,
         map_path=args.map_path,
-        cone_e_host=args.cone_e_host,
-        cone_e_port=args.cone_e_port,
+        yor_e_host=args.yor_e_host,
+        yor_e_port=args.yor_e_port,
         path_step_m=args.path_step_m,
         zed_up_axis=args.zed_up_axis,
     )
