@@ -1,0 +1,13 @@
+name: yor-nero
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pinocchio
+  - pybind11
+  - spdlog
+  - catch2
+  - cmake
+  - boost
+  - gxx
+  - cxx-compiler

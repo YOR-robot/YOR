@@ -1,0 +1,263 @@
+<robot name="nero">
+  <link name="dummy_link" />
+
+  <!-- rpy='-2.356194 -1.570791 -2.356194' matches nero-welded-base-and-lift.mjcf euler='1.5708 0 1.5708'.
+       Verified: Rx(1.5708)@Ry(0)@Rz(1.5708) = Rz(-2.356)@Ry(-1.571)@Rx(-2.356) -->
+  <joint name="base_to_dummy" type="fixed">
+    <parent link="dummy_link" />
+    <child link="base_link" />
+    <origin xyz="-0.005 -0.125 0.0575" rpy="-2.356194 -1.570791 -2.356194" />
+  </joint>
+
+  <link name="base_link">
+    <inertial>
+      <origin xyz="-0.00963615 0.00016787 0.0448601" rpy="0 0 0" />
+      <mass value="0.77" />
+      <inertia ixx="0.00267433" ixy="-0.00000073" ixz="-0.00017389" iyy="0.00282612" iyz="0.0000004" izz="0.00089624" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://nero_description/meshes/base_link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://nero_description/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="link1">
+    <inertial>
+      <origin xyz="-0.00077 -0.00006 -0.00686" rpy="0 0 0" />
+      <mass value="0.77" />
+      <inertia ixx="0.0006669" ixy="0" ixz="0" iyy="0.00054501" iyz="0" izz="0.00051509" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://nero_description/meshes/link1.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://nero_description/meshes/link1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <!-- joint1: matches MJCF quat='1 0 0 0', pos='0 0 0.138' -->
+  <!-- FIXED limit: MJCF range='-2.7 2.7' -->
+  <joint name="joint1" type="revolute">
+    <origin xyz="0 0 0.138" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="link1" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.7" upper="2.7" effort="100" velocity="5" />
+  </joint>
+
+  <link name="link2">
+    <inertial>
+      <origin xyz="-0.00011 -0.06072 0.00148" rpy="0 0 0" />
+      <mass value="0.49" />
+      <inertia ixx="0.00053808" ixy="0" ixz="0" iyy="0.00029435" iyz="0" izz="0.00040266" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://nero_description/meshes/link2.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://nero_description/meshes/link2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <!-- joint2: matches MJCF quat='0.000033 0.000033 0.707105 -0.707108' -> rpy~'-1.5708 0 -3.1416' -->
+  <!-- FIXED limit: MJCF range='-1.74 1.74' -->
+  <joint name="joint2" type="revolute">
+    <origin xyz="0 0 0" rpy="-1.570792 0.000093 -3.141593" />
+    <parent link="link1" />
+    <child link="link2" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.74" upper="1.74" effort="100" velocity="5" />
+  </joint>
+
+  <link name="link3">
+    <inertial>
+      <origin xyz="0.00014 0.00211 -0.04853" rpy="0 0 0" />
+      <mass value="0.67" />
+      <inertia ixx="0.00342528" ixy="0" ixz="0" iyy="0.0033924" iyz="0" izz="0.00026169" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://nero_description/meshes/link3.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://nero_description/meshes/link3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <!-- joint3: matches MJCF quat='-0.000003 0.000003 -0.707108 0.707105' -> rpy~'-1.5708 0 -3.1416' -->
+  <!-- FIXED limit: MJCF range='-2.75 2.75' -->
+  <joint name="joint3" type="revolute">
+    <origin xyz="0 -0.31 0" rpy="-1.570801 0.000000 -3.141584" />
+    <parent link="link2" />
+    <child link="link3" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.75" upper="2.75" effort="100" velocity="5" />
+  </joint>
+
+  <link name="link4">
+    <inertial>
+      <origin xyz="-0.00013 -0.05482 0.00132" rpy="0 0 0" />
+      <mass value="0.41" />
+      <inertia ixx="0.00031331" ixy="0" ixz="0" iyy="0.00013204" iyz="0" izz="0.0002393" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://nero_description/meshes/link4.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://nero_description/meshes/link4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <!-- joint4: matches MJCF quat='-0.000003 0.000003 -0.707108 0.707105' -> rpy~'-1.5708 0 -3.1416' -->
+  <!-- FIXED limit: MJCF range='0 2.14' -->
+  <joint name="joint4" type="revolute">
+    <origin xyz="0 0 0" rpy="-1.570801 0.000000 -3.141584" />
+    <parent link="link3" />
+    <child link="link4" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="2.14" effort="100" velocity="5" />
+  </joint>
+
+  <link name="link5">
+    <inertial>
+      <origin xyz="0.00303 0.00617 -0.11778" rpy="0 0 0" />
+      <mass value="0.56" />
+      <inertia ixx="0.0008249" ixy="0" ixz="0" iyy="0.00078548" iyz="0" izz="0.00021015" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://nero_description/meshes/link5.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://nero_description/meshes/link5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <!-- joint5: matches MJCF quat='0.499998 0.500000 -0.500000 0.500002' -> rpy~'-1.5708 -1.5708 -3.1416' -->
+  <!-- FIXED limit: MJCF range='-2.75 2.75' -->
+  <joint name="joint5" type="revolute">
+    <origin xyz="0 -0.270010 0" rpy="-1.570794 -1.570792 -3.141591" />
+    <parent link="link4" />
+    <child link="link5" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.75" upper="2.75" effort="100" velocity="5" />
+  </joint>
+
+  <link name="link6">
+    <inertial>
+      <origin xyz="0.00014 -0.0027 -0.00025" rpy="0 0 0" />
+      <!-- ABSORBED gripper_base inertia (mass 0.0001, negligible) into link6 -->
+      <mass value="0.3101" />
+      <inertia ixx="0.00008181" ixy="0" ixz="0" iyy="0.00007176" iyz="0" izz="0.00007906" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://nero_description/meshes/link6.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://nero_description/meshes/link6.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <!-- joint6: matches MJCF quat='0.499998 0.500000 -0.500000 0.500002' -> rpy~'-1.5708 -1.5708 -3.1416' -->
+  <!-- FIXED limit: MJCF range='-0.73 0.95' -->
+  <joint name="joint6" type="revolute">
+    <origin xyz="0 0 0" rpy="-1.570794 -1.570792 -3.141591" />
+    <parent link="link5" />
+    <child link="link6" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.73" upper="0.95" effort="100" velocity="3" />
+  </joint>
+
+  <link name="link7">
+    <inertial>
+      <origin xyz="-0.00014 -0.0001 -0.00275" rpy="0 0 0" />
+      <mass value="0.000001" />
+      <inertia ixx="1.1e-07" ixy="0" ixz="0" iyy="1.1e-07" iyz="0" izz="2e-07" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://nero_description/meshes/link7.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://nero_description/meshes/link7.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <!-- FIXED: parent changed from gripper_base -> link6 (matches MJCF topology) -->
+  <!-- FIXED: rpy was '-2.356194 1.570791 2.356194', now matches MJCF euler='1.5708 0 -1.5708' -->
+  <joint name="joint7" type="revolute">
+    <origin xyz="0 -0.0235 0" rpy="-1.5708 0 -1.5708" />
+    <parent link="link6" />
+    <child link="link7" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.57" upper="1.57" effort="10" velocity="1" />
+  </joint>
+
+  <!-- REMOVED: gripper_base link/joint (absorbed into link6, mass negligible) -->
+  <!-- REMOVED: link8 and joint8 (mass 0.01kg had no equivalent in MJCF, would corrupt grav comp) -->
+
+</robot>

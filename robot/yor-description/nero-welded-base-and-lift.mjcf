@@ -1,0 +1,257 @@
+<mujoco model="cone-e-nero">
+  <compiler angle="radian" meshdir="assets_nero"/>
+  <option integrator="implicitfast" cone="elliptic" impratio="10" gravity="0 0 -9.81" timestep="0.005" />
+  
+  <default>
+    <default class="robot">
+      <default class="visual">
+        <geom material="visualgeom" type="mesh" contype="0" conaffinity="0" group="2" density="0"/>
+      </default>
+      <default class="collision">
+        <geom type="capsule" condim="3" contype="0" conaffinity="1" priority="1" group="3" solref="0.005 1"
+          friction="1 0.01 0.01" />
+      </default>
+      <!-- Add other defaults from original if needed -->
+    </default>
+
+    <default class="nero">
+      <joint frictionloss="0.3" armature="0.005" />
+      <position inheritrange="1" forcerange="-100 100" />
+      <default class="collision_gripper">
+        <geom type="mesh" group="3" friction="2 0.005 0.0001" density="100" />
+      </default>
+    </default>
+
+    <default class="telescope">
+      <joint type="slide" axis="0 0 1" damping="50" stiffness="0.02" armature="0.01" range="0 0.208" frictionloss="1.5"/>
+      <general ctrlrange="0 0.416" gainprm="150" biasprm="0 -100 -10" forcerange="-56 56"/>
+    </default>
+  </default>
+
+  <asset>
+    <material name="gray_mat" rgba="0.59 0.59 0.59 1" />
+    <material name="light_medium_gray_mat" rgba="0.85 0.85 0.85 1" />
+    <material name="base_material" rgba="1 0 0 1" />
+    <material name="Lift_Middle_material" rgba="0.9 0.9 0.9 1" />
+    
+    <!-- Base/Lift meshes (assuming they are in assets_nero or need to be copied/referenced) -->
+    <!-- We should probably copy base/lift meshes to assets_nero too or reference them relative? 
+         The generated file is in cone-e-description, assets_nero is subdir. 
+         Original meshes/base_profile_short.stl etc. might need to be copied. 
+         For now assume they are available or we use exact filenames if copied. -->
+    
+    <!-- Nero arm meshes -->
+    <mesh name="base_link" file="base_link.STL" />
+    <mesh name="link1" file="Link1.STL" />
+    <mesh name="link2" file="Link2.STL" />
+    <mesh name="link3" file="Link3.STL" />
+    <mesh name="link4" file="Link4.STL" />
+    <mesh name="link5" file="Link5.STL" />
+    <mesh name="link6" file="Link6.STL" />
+    <mesh name="link7" file="Link7.STL" />
+    <mesh name="stand_v2" file="stand_v2.STL" />
+
+    <!-- Base/Lift meshes -->
+    <mesh name="base_profile_short" file="base_profile_short.stl" />
+    <mesh name="Part_2" file="Part_2.stl" />
+    <mesh name="MK4_Colson_Hub_4_X_1.5" file="MK4_Colson_Hub_4_X_1.5.stl" />
+    <mesh name="Part_2_2" file="Part_2_2.stl" />
+    <mesh name="MK4_Colson_Hub_4_X_1.5_2" file="MK4_Colson_Hub_4_X_1.5_2.stl" />
+    <mesh name="Part_2_3" file="Part_2_3.stl" />
+    <mesh name="MK4_Colson_Hub_4_X_1.5_3" file="MK4_Colson_Hub_4_X_1.5_3.stl" />
+    <mesh name="Part_2_4" file="Part_2_4.stl" />
+    <mesh name="MK4_Colson_Hub_4_X_1.5_4" file="MK4_Colson_Hub_4_X_1.5_4.stl" />
+    <mesh name="Lift_Middle" file="Lift_Middle.stl" />
+    <mesh name="Lift_Top" file="Lift_Top.stl" />
+  </asset>
+
+  <worldbody>
+     <!-- Base/Lift Body Structure (Simplified copy from original) -->
+    <body name="base" pos="0 0 0.104775" euler="0 1.57 0" childclass="robot">
+       <geom name="base_visual" type="sphere" size="0.01" class="visual" material="base_material"/>
+       <body name="base_profile_short">
+          <geom mesh="base_profile_short" class="visual" material="base_material"/>
+          <geom mesh="base_profile_short" class="collision"/>
+          <!-- Skipping detailed wheel parts for brevity unless critical -->
+          
+          <body name="Lift_Middle" pos="-0.5094 -0.20955 0.0003" quat="0 -0.707107 0 0.707107">
+             <joint name="lift_joint" class="telescope"/>
+             <geom mesh="Lift_Middle" class="visual" material="Lift_Middle_material"/>
+             <geom mesh="Lift_Middle" class="collision"/>
+             
+             <body name="Lift_Top" pos="0 0 0">
+               <geom mesh="Lift_Top" class="visual" material="Lift_Middle_material"/>
+               <geom mesh="Lift_Top" class="collision"/>
+
+               <!-- Left Arm (7 DOF) - Nero structure with quaternions -->
+                <body name="left_arm_base_link" pos="-0.005 -0.125 0.0575" euler="1.5708 0 1.5708" childclass="nero" gravcomp="1">
+                  <inertial pos="-0.00963615 0.00016787 0.0448601" mass="0.77" diaginertia="0.0006669 0.00054501 0.00051509" />
+                  <geom mesh="base_link" class="visual" material="light_medium_gray_mat"/>
+                  <geom mesh="base_link" class="collision"/>
+                  
+                  <body name="left_arm_link1" pos="0 0 0.138" quat="1.0 0.0 0.0 0.0" gravcomp="1">
+                    <inertial pos="-0.00077 -0.00006 -0.00686" mass="0.77" diaginertia="0.0006669 0.00054501 0.00051509" />
+                    <joint name="left_arm_joint1" axis="0 0 1" range="-2.7 2.7"/>
+                    <geom mesh="link1" class="visual" material="gray_mat"/>
+                    <geom mesh="link1" class="collision"/>
+                    
+                    <body name="left_arm_link2" pos="0 0 0" quat="0.000033 0.000033 0.707105 -0.707108" gravcomp="1">
+                      <inertial pos="-0.00011 -0.06072 0.00148" mass="0.49" diaginertia="0.00053808 0.00029435 0.00040266" />
+                      <joint name="left_arm_joint2" axis="0 0 1" range="-1.74 1.74"/>
+                      <geom mesh="link2" class="visual" material="light_medium_gray_mat"/>
+                      <geom mesh="link2" class="collision"/>
+                      
+                      <body name="left_arm_link3" pos="0 -0.31 0" quat="-0.000003 0.000003 -0.707108 0.707105" gravcomp="1">
+                        <inertial pos="0.00014 0.00211 -0.04853" mass="0.67" diaginertia="0.00342528 0.0033924 0.00026169" />
+                        <joint name="left_arm_joint3" axis="0 0 1" range="-2.75 2.75"/>
+                        <geom mesh="link3" class="visual" material="gray_mat"/>
+                        <geom mesh="link3" class="collision"/>
+                        
+                        <body name="left_arm_link4" pos="0 0 0" quat="-0.000003 0.000003 -0.707108 0.707105" gravcomp="1">
+                          <inertial pos="-0.00013 -0.05482 0.00132" mass="0.41" diaginertia="0.00031331 0.00013204 0.0002393" />
+                          <joint name="left_arm_joint4" axis="0 0 1" range="0 2.14"/>
+                          <geom mesh="link4" class="visual" material="light_medium_gray_mat"/>
+                          <geom mesh="link4" class="collision"/>
+                          
+                          <body name="left_arm_link5" pos="0 -0.27001 0" quat="0.499998 0.500000 -0.500000 0.500002" gravcomp="1">
+                            <inertial pos="0.00303 0.00617 -0.11778" mass="0.56" diaginertia="0.0008249 0.00078548 0.00021015" />
+                            <joint name="left_arm_joint5" axis="0 0 1" range="-2.75 2.75"/>
+                            <geom mesh="link5" class="visual" material="gray_mat"/>
+                            <geom mesh="link5" class="collision"/>
+                            
+                            <body name="left_arm_link6" pos="0 0 0" quat="0.499998 0.500000 -0.500000 0.500002" gravcomp="1">
+                              <inertial pos="0.00014 -0.0027 -0.00025" mass="0.31" diaginertia="0.00008181 0.00007176 0.00007906" />
+                              <joint name="left_arm_joint6" axis="0 0 1" range="-0.73 0.95"/>
+                              <geom mesh="link6" class="visual" material="light_medium_gray_mat"/>
+                              <geom mesh="link6" class="collision"/>
+                              
+                              <body name="left_arm_link7" pos="0 -0.0235 0" euler="1.5708 0 -1.5708" gravcomp="1">
+                                <inertial pos="-0.00014 -0.0001 -0.00275" mass="0.000001" diaginertia="1.1e-07 1.1e-07 2e-07" />
+                                <joint name="left_arm_joint7" axis="0 0 1" range="-1.57 1.57"/>
+                                <geom mesh="link7" class="visual" material="gray_mat"/>
+                                <geom mesh="link7" class="collision"/>
+                                
+                                <!-- End Effector with stand_v2 -->
+                                <body name="left_arm_end_effector" pos="0 0.033 -0.0235" gravcomp="1">
+                                  <inertial pos="-0.01208 -0.00025 0.00032" mass="0.05" diaginertia="2.697e-05 4.311e-05 2.479e-05" />
+                                  <geom mesh="stand_v2" euler="-1.57 0 -1.57" class="visual" material="gray_mat"/>
+                                  <geom mesh="stand_v2" euler="-1.57 0 -1.57" class="collision"/>
+                                  <site name="left_arm_ee" pos="0 0 0.1"/>
+                                </body>
+                              </body>
+                            </body>
+                          </body>
+                        </body>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+
+               <!-- Right Arm (7 DOF) - Nero structure with quaternions -->
+                <body name="right_arm_base_link" pos="-0.005 0.125 0.0575" euler="-1.5708 0 4.7124" childclass="nero" gravcomp="1">
+                  <inertial pos="-0.00963615 0.00016787 0.0448601" mass="0.77" diaginertia="0.0006669 0.00054501 0.00051509" />
+                  <geom mesh="base_link" class="visual" material="light_medium_gray_mat"/>
+                  <geom mesh="base_link" class="collision"/>
+                  
+                  <body name="right_arm_link1" pos="0 0 0.138" quat="1.0 0.0 0.0 0.0" gravcomp="1">
+                    <inertial pos="-0.00077 -0.00006 -0.00686" mass="0.77" diaginertia="0.0006669 0.00054501 0.00051509" />
+                    <joint name="right_arm_joint1" axis="0 0 1" range="-2.7 2.7"/>
+                    <geom mesh="link1" class="visual" material="gray_mat"/>
+                    <geom mesh="link1" class="collision"/>
+                    
+                    <body name="right_arm_link2" pos="0 0 0" quat="0.000033 0.000033 0.707105 -0.707108" gravcomp="1">
+                      <inertial pos="-0.00011 -0.06072 0.00148" mass="0.49" diaginertia="0.00053808 0.00029435 0.00040266" />
+                      <joint name="right_arm_joint2" axis="0 0 1" range="-1.74 1.74"/>
+                      <geom mesh="link2" class="visual" material="light_medium_gray_mat"/>
+                      <geom mesh="link2" class="collision"/>
+                      
+                      <body name="right_arm_link3" pos="0 -0.31 0" quat="-0.000003 0.000003 -0.707108 0.707105" gravcomp="1">
+                        <inertial pos="0.00014 0.00211 -0.04853" mass="0.67" diaginertia="0.00342528 0.0033924 0.00026169" />
+                        <joint name="right_arm_joint3" axis="0 0 1" range="-2.75 2.75"/>
+                        <geom mesh="link3" class="visual" material="gray_mat"/>
+                        <geom mesh="link3" class="collision"/>
+                        
+                        <body name="right_arm_link4" pos="0 0 0" quat="-0.000003 0.000003 -0.707108 0.707105" gravcomp="1">
+                          <inertial pos="-0.00013 -0.05482 0.00132" mass="0.41" diaginertia="0.00031331 0.00013204 0.0002393" />
+                          <joint name="right_arm_joint4" axis="0 0 1" range="0 2.14"/>
+                          <geom mesh="link4" class="visual" material="light_medium_gray_mat"/>
+                          <geom mesh="link4" class="collision"/>
+                          
+                          <body name="right_arm_link5" pos="0 -0.27001 0" quat="0.499998 0.500000 -0.500000 0.500002" gravcomp="1">
+                            <inertial pos="0.00303 0.00617 -0.11778" mass="0.56" diaginertia="0.0008249 0.00078548 0.00021015" />
+                            <joint name="right_arm_joint5" axis="0 0 1" range="-2.75 2.75"/>
+                            <geom mesh="link5" class="visual" material="gray_mat"/>
+                            <geom mesh="link5" class="collision"/>
+                            
+                            <body name="right_arm_link6" pos="0 0 0" quat="0.499998 0.500000 -0.500000 0.500002" gravcomp="1">
+                              <inertial pos="0.00014 -0.0027 -0.00025" mass="0.31" diaginertia="0.00008181 0.00007176 0.00007906" />
+                              <joint name="right_arm_joint6" axis="0 0 1" range="-0.73 0.95"/>
+                              <geom mesh="link6" class="visual" material="light_medium_gray_mat"/>
+                              <geom mesh="link6" class="collision"/>
+                              
+                              <body name="right_arm_link7" pos="0 -0.0235 0" euler="1.5708 0 -1.5708" gravcomp="1">
+                                <inertial pos="-0.00014 -0.0001 -0.00275" mass="0.000001" diaginertia="1.1e-07 1.1e-07 2e-07" />
+                                <joint name="right_arm_joint7" axis="0 0 1" range="-1.57 1.57"/>
+                                <geom mesh="link7" class="visual" material="gray_mat"/>
+                                <geom mesh="link7" class="collision"/>
+                                
+                                <!-- End Effector with stand_v2 -->
+                                <body name="right_arm_end_effector" pos="0 0.033 -0.0235" gravcomp="1">
+                                  <inertial pos="-0.01208 -0.00025 0.00032" mass="0.05" diaginertia="2.697e-05 4.311e-05 2.479e-05" />
+                                  <geom mesh="stand_v2" euler="-1.57 0 -1.57" class="visual" material="gray_mat"/>
+                                  <geom mesh="stand_v2" euler="-1.57 0 -1.57" class="collision"/>
+                                  <site name="right_arm_ee" pos="0 0 0.1"/>
+                                </body>
+                              </body>
+                            </body>
+                          </body>
+                        </body>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+
+             </body>
+          </body>
+       </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- Left arm actuators (7 DOF) -->
+    <position name="left_arm_joint1_pos" joint="left_arm_joint1" class="nero" kp="15" kv="1.5"/>
+    <position name="left_arm_joint2_pos" joint="left_arm_joint2" class="nero" kp="15" kv="1.5"/>
+    <position name="left_arm_joint3_pos" joint="left_arm_joint3" class="nero" kp="15" kv="1.5"/>
+    <position name="left_arm_joint4_pos" joint="left_arm_joint4" class="nero" kp="15" kv="1.5"/>
+    <position name="left_arm_joint5_pos" joint="left_arm_joint5" class="nero" kp="15" kv="1.5"/>
+    <position name="left_arm_joint6_pos" joint="left_arm_joint6" class="nero" kp="15" kv="1.5"/>
+    <position name="left_arm_joint7_pos" joint="left_arm_joint7" class="nero" kp="15" kv="1.5"/>
+
+    <!-- Right arm actuators (7 DOF) -->
+    <position name="right_arm_joint1_pos" joint="right_arm_joint1" class="nero" kp="15" kv="1.5"/>
+    <position name="right_arm_joint2_pos" joint="right_arm_joint2" class="nero" kp="15" kv="1.5"/>
+    <position name="right_arm_joint3_pos" joint="right_arm_joint3" class="nero" kp="15" kv="1.5"/>
+    <position name="right_arm_joint4_pos" joint="right_arm_joint4" class="nero" kp="15" kv="1.5"/>
+    <position name="right_arm_joint5_pos" joint="right_arm_joint5" class="nero" kp="15" kv="1.5"/>
+    <position name="right_arm_joint6_pos" joint="right_arm_joint6" class="nero" kp="15" kv="1.5"/>
+    <position name="right_arm_joint7_pos" joint="right_arm_joint7" class="nero" kp="15" kv="1.5"/>
+    
+    <!--position name="Lift" joint="lift_joint" class="telescope" --> <!-- Dummy/Placeholder for lift if we had it, omitting for now or adding if needed -->
+  </actuator>
+  
+  <contact>
+    <exclude body1="left_arm_base_link" body2="left_arm_link1"/>
+    <exclude body1="left_arm_link5" body2="left_arm_link6"/>
+    <exclude body1="left_arm_link6" body2="left_arm_link7"/>
+    <exclude body1="left_arm_link7" body2="left_arm_end_effector"/>
+    
+    <exclude body1="right_arm_base_link" body2="right_arm_link1"/>
+    <exclude body1="right_arm_link5" body2="right_arm_link6"/>
+    <exclude body1="right_arm_link6" body2="right_arm_link7"/>
+    <exclude body1="right_arm_link7" body2="right_arm_end_effector"/>
+    
+    <exclude body1="Lift_Top" body2="left_arm_base_link"/>
+    <exclude body1="Lift_Top" body2="right_arm_base_link"/>
+  </contact>
+
+</mujoco>

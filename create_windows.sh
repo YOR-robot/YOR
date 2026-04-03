@@ -17,16 +17,16 @@ if command -v tmux &> /dev/null; then
 
     # Send commands to each pane
     # 1. Connect CAN adapter and bring up interface
-    tmux send-keys -t robot:0.2 'conda activate yor' C-m
-    tmux send-keys -t robot:0.2 './extra/setup.sh' 
+    tmux send-keys -t robot:0.0 'conda activate yor-nero' C-m
+    tmux send-keys -t robot:0.0 './extra/setup.sh' 
     
     # 2. Launch Robot Driver
-    tmux send-keys -t robot:0.1 'conda activate yor' C-m
+    tmux send-keys -t robot:0.1 'conda activate yor-nero' C-m
     tmux send-keys -t robot:0.1 'python robot/yor.py' 
 
     # 3. Control the Robot (Teleop)
-    tmux send-keys -t robot:0.0 'conda activate yor' C-m
-    tmux send-keys -t robot:0.0 'python robot/teleop/joystick.py' 
+    tmux send-keys -t robot:0.2 'conda activate yor-nero' C-m
+    tmux send-keys -t robot:0.2 'python robot/teleop/joystick.py' 
 
     # Attach to the session
     tmux attach-session -t robot

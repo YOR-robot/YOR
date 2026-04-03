@@ -1,0 +1,8 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/cone-e/code/nerolib/build/cmake_install.cmake",
+		"/home/cone-e/code/nerolib/build/ruckig/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

@@ -4,7 +4,7 @@ from typing import Any, Optional
 from pathlib import Path
 import argparse
 
-from piperlib import PiperJointController, RobotConfigFactory, ControllerConfigFactory, JointState
+from nerolib import NeroController, ControllerConfig, JointState
 import mink
 from dora import Node
 
@@ -17,15 +17,19 @@ class BimanualArmNode:
         self.mjcf_path = mjcf_path
         self.solver_dt = solver_dt
 
-        # initialize arm
-        controller_config = ControllerConfigFactory.get_instance().get_config("joint_controller")
+        # initialize arms via nerolib
+        left_config = ControllerConfig()
+        left_config.interface_name = "can_left"
+        left_config.urdf_path = left_urdf_path
 
-        left_robot_config = RobotConfigFactory.get_instance().get_config("piper")
-        left_robot_config.urdf_path = left_urdf_path
-        right_robot_config = RobotConfigFactory.get_instance().get_config("piper")
-        right_robot_config.urdf_path = right_urdf_path
-        self.left_piper = PiperJointController(left_robot_config, controller_config, "can_left")
-        self.right_piper = PiperJointController(right_robot_config, controller_config, "can_right")
+        right_config = ControllerConfig()
+        right_config.interface_name = "can_right"
+        right_config.urdf_path = right_urdf_path
+
+        self.left_piper = NeroController(left_config)
+        self.right_piper = NeroController(right_config)
+        self.left_piper.start()
+        self.right_piper.start()
 
         # initialize ik
         self.left_target: Optional[mink.SE3] = None
@@ -44,19 +48,22 @@ class BimanualArmNode:
         time.sleep(1.0)
         # home
         home_q = np.array(self.ik_solver.get_home_q())
-        left_cmd = JointState(6)
-        left_cmd.timestamp = self.left_piper.get_timestamp() + 1.0
-        left_cmd.pos = home_q[:6]
 
-        right_cmd = JointState(6)
-        right_cmd.timestamp = self.right_piper.get_timestamp() + 1.0
-        right_cmd.pos = home_q[6:]
-
-        self.left_piper.set_joint_cmd(left_cmd)
-        self.right_piper.set_joint_cmd(right_cmd)
+        self.left_piper.set_target(
+            new_target_pos=home_q[:7].tolist(),
+            new_target_gripper_pos=0.0,
+            minimum_duration=1.0,
+        )
+        self.right_piper.set_target(
+            new_target_pos=home_q[7:].tolist(),
+            new_target_gripper_pos=0.0,
+            minimum_duration=1.0,
+        )
 
         time.sleep(2.0)
-        q = np.concatenate([self.left_piper.get_joint_state().pos, self.right_piper.get_joint_state().pos])
+        left_state = self.left_piper.get_current_state()
+        right_state = self.right_piper.get_current_state()
+        q = np.concatenate([left_state.pos, right_state.pos])
         self.ik_solver.init(q)
         self.left_target, self.right_target = self.ik_solver.forward_kinematics()
 
@@ -79,26 +86,24 @@ class BimanualArmNode:
         self.right_gripper = bimanual_arm_command.right_gripper
 
     def step(self):
-        # q = np.concatenate([self.left_piper.get_joint_state().pos, self.right_piper.get_joint_state().pos])
         left_ee_pose, right_ee_pose = self.ik_solver.forward_kinematics()
         if self.left_target is not None and self.right_target is not None:
             qd_left, qd_right = self.ik_solver.solve_ik(self.left_target, self.right_target)
-            left_cmd = JointState(6)
-            left_cmd.pos = qd_left
-            if self.left_gripper is not None:
-                left_cmd.gripper_pos = self.left_gripper
-            right_cmd = JointState(6)
-            right_cmd.pos = qd_right
-            if self.right_gripper is not None:
-                right_cmd.gripper_pos = self.right_gripper
-            self.left_piper.set_joint_cmd(left_cmd)
-            self.right_piper.set_joint_cmd(right_cmd)
+            self.left_piper.set_target(
+                new_target_pos=qd_left.tolist(),
+                new_target_gripper_pos=float(self.left_gripper) if self.left_gripper is not None else 0.0,
+            )
+            self.right_piper.set_target(
+                new_target_pos=qd_right.tolist(),
+                new_target_gripper_pos=float(self.right_gripper) if self.right_gripper is not None else 0.0,
+            )
 
         pose_msg = BimanualPose(time.perf_counter_ns(), left_ee_pose.wxyz_xyz, right_ee_pose.wxyz_xyz)
         self.node.send_output("bimanual_ee_pose", *pose_msg.encode())
 
     def stop(self):
-        pass
+        self.left_piper.stop()
+        self.right_piper.stop()
 
     def spin(self):
         for event in self.node:

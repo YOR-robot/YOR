@@ -1,10 +1,17 @@
 # yor.py
+import sys
 import functools
 import time
 import numpy as np
 import mink
 import atexit
 from pathlib import Path
+
+# Add project root to sys.path
+_HERE = Path(__file__).parent
+_ROOT = _HERE.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 # Import Base from either package layout (robot/base.py) or flat (base.py)
 from robot.base import Base
@@ -85,12 +92,12 @@ class YOR():
             _HERE = Path(__file__).parent
             self.left_arm = ArmNode(
                 can_port="can_left",
-                mjcf_path=(_HERE / "yor-description/robot-welded-base-and-lift.mjcf").as_posix(),
-                dynamixel_gripper=True,
+                mjcf_path=(_HERE / "yor-description/nero-welded-base-and-lift.mjcf").as_posix(),
+                dynamixel_gripper=False,
             )
             self.right_arm = ArmNode(
                 can_port="can_right",
-                mjcf_path=(_HERE / "yor-description/robot-welded-base-and-lift.mjcf").as_posix(),
+                mjcf_path=(_HERE / "yor-description/nero-welded-base-and-lift.mjcf").as_posix(),
                 is_left_arm=False,
                 dynamixel_gripper=False,
             )
@@ -421,26 +428,26 @@ class YOR():
         Returns dict with left/right ee poses and joint positions and lift position.
         Note: Lift position is 0.0 as new hardware doesn't support position feedback.
         """
-        row = [0.0] * (1 + 7 + 6 + 1 + 7 + 6 + 1 + 1)
+        row = [0.0] * (1 + 7 + 7 + 1 + 7 + 7 + 1 + 1)
         if not self.no_arms:
             row[0] = time.time()
             row[1:8] = self.left_arm.get_ee_pose().wxyz_xyz.tolist()
-            row[8:14] = self.left_arm.get_joint_positions().tolist()
-            row[14] = self.left_arm.get_gripper_pose()
-            row[15:22] = self.right_arm.get_ee_pose().wxyz_xyz.tolist()
-            row[22:28] = self.right_arm.get_joint_positions().tolist()
-            row[28] = self.right_arm.get_gripper_pose()
-            row[29] = 0.0  # lift position not available on new hardware
+            row[8:15] = self.left_arm.get_joint_positions().tolist()
+            row[15] = self.left_arm.get_gripper_pose()
+            row[16:23] = self.right_arm.get_ee_pose().wxyz_xyz.tolist()
+            row[23:30] = self.right_arm.get_joint_positions().tolist()
+            row[30] = self.right_arm.get_gripper_pose()
+            row[31] = 0.0  # lift position not available on new hardware
             return row
         else:
             row[0] = time.time()
             row[1:8] = [0.90724, -0.41142, 0.075, -0.04495, 0.10741, 0.11358, 0.89066] # roughly tucked position
-            row[8:14] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # tucked position
-            row[14] = 1.0 # fully open
-            row[15:22] = [0.90029, 0.42914, 0.06059, 0.04051, 0.10338, -0.53731, 0.89969]
-            row[22:28] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # tucked position
-            row[28] = 1.0
-            row[29] = 0.0  # lift position not available on new hardware
+            row[8:15] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # tucked position
+            row[15] = 1.0 # fully open
+            row[16:23] = [0.90029, 0.42914, 0.06059, 0.04051, 0.10338, -0.53731, 0.89969]
+            row[23:30] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # tucked position
+            row[30] = 1.0
+            row[31] = 0.0  # lift position not available on new hardware
             return row
 
     @require_initialization
@@ -461,8 +468,22 @@ class YOR():
 def main():    
     yor = YOR(no_arms=False)
     yor.init()
-    server = RPCServer(yor, port=YOR_PORT, threaded = True)
-    atexit.register(server.stop)
+    server = RPCServer(yor, port=YOR_PORT, threaded=True)
+    
+    def graceful_shutdown():
+        print("\nRPC Server stopping...")
+        server.stop()
+        
+        if not yor.no_arms:
+            if hasattr(yor, 'left_arm') and yor.left_arm is not None:
+                input("\n[YOR] Press ENTER to drop LEFT arm...")
+                yor.left_arm.stop()
+            
+            if hasattr(yor, 'right_arm') and yor.right_arm is not None:
+                input("\n[YOR] Press ENTER to drop RIGHT arm...")
+                yor.right_arm.stop()
+                
+    atexit.register(graceful_shutdown)
     server.start()
     while True:
         time.sleep(1)

@@ -1,0 +1,18 @@
+[build-system]
+requires      = ["scikit-build-core>=0.10", "pybind11", "numpy"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "nerolib"
+version = "0.1.0"
+description = "Nero library with gravity compensation and joint interpolation control"
+readme = "README.md"
+license = {text="MIT"}
+requires-python = ">=3.9"
+authors = [{name = "Enes Erciyes", email = "m.eneserciyes@gmail.com"}]
+
+
+[tool.scikit-build]
+wheel.expand-macos-universal-tags = true        # one wheel for arm64+intel
+minimum-version = "build-system.requires"
+cmake.build-type = "Release"

@@ -10,7 +10,7 @@ class SingleArmIK:
         solver_dt=0.01,
         joint_names: list[str] | None = None,
         ee_frame: str | None = None,
-        # use_lift: bool = False,
+        use_lift: bool = False,
     ):
         self.model = mujoco.MjModel.from_xml_path(mjcf_path)
         self.solver_dt = solver_dt
@@ -23,6 +23,7 @@ class SingleArmIK:
                 "left_arm_joint4",
                 "left_arm_joint5",
                 "left_arm_joint6",
+                "left_arm_joint7",
                 # "Slider_1",
                 # "Slider_2",
             ]
@@ -32,8 +33,8 @@ class SingleArmIK:
         # velocity_limits = {k: np.pi / 2 if "joint" in k else 0.05 for k in joint_names}
         self.dof_ids = np.array([self.model.joint(name).id for name in joint_names])
         self.actuator_ids = np.array([self.model.actuator(name + "_pos").id for name in joint_names if "joint" in name])
-        # if use_lift:
-        #     self.lift_actuator_id = self.model.actuator("Lift").id
+        if use_lift:
+            self.lift_actuator_id = self.model.actuator("Lift").id
 
         self.configuration = mink.Configuration(self.model)
         self.end_effector_task = mink.FrameTask(
@@ -43,19 +44,19 @@ class SingleArmIK:
             orientation_cost=0.1,
             lm_damping=1.0,
         )
-        # lift_cost = [1e-1] * 2
-        arm_cost = [1e-3] * 6
+        lift_cost = [1e-1]
+        arm_cost = [1e-3] * 7
         # posture_cost = lift_cost + arm_cost + arm_cost
         self.posture_task = mink.PostureTask(
-            self.model, cost=np.array(arm_cost + arm_cost)
+            self.model, cost=np.array(lift_cost + arm_cost + arm_cost)
         )
         self.tasks = [self.end_effector_task, self.posture_task]
-        # if use_lift:
-        #     self.lift_equality_task = mink.EqualityConstraintTask(
-        #         self.model,
-        #         cost=1.0,
-        #     )
-        #     self.tasks.append(self.lift_equality_task)
+        if use_lift:
+            self.lift_equality_task = mink.EqualityConstraintTask(
+                self.model,
+                cost=1.0,
+            )
+            self.tasks.append(self.lift_equality_task)
         self.limits = [mink.ConfigurationLimit(self.model)]  # , mink.VelocityLimit(self.model, velocity_limits)]
 
         # initial setup
@@ -78,7 +79,7 @@ class SingleArmIK:
         is_solved = False
         for _ in range(max_iter):
             vel = mink.solve_ik(
-                self.configuration, self.tasks, self.solver_dt, solver="quadprog", damping=1e-5, limits=self.limits
+                self.configuration, self.tasks, self.solver_dt, solver="daqp", damping=1e-5, limits=self.limits
             )
             self.configuration.integrate_inplace(vel, self.solver_dt)
             err = self.end_effector_task.compute_error(self.configuration)
@@ -165,7 +166,7 @@ class BimanualArmIK:
         self.left_ee_task.set_target(T_wL)
         self.right_ee_task.set_target(T_wR)
         vel = mink.solve_ik(
-            self.configuration, self.tasks, self.solver_dt, solver="quadprog", damping=1e-3, limits=self.limits
+            self.configuration, self.tasks, self.solver_dt, solver="daqp", damping=1e-3, limits=self.limits
         )
         self.configuration.integrate_inplace(vel, self.solver_dt)
         q = self.configuration.q[self.dof_ids]
