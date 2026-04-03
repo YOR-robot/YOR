@@ -16,7 +16,7 @@ This repository contains the codebase for the YOR robot, supporting both high-fi
 This repository uses submodules. Clone recursively:
 ```bash
 git clone -b nero --recursive https://github.com/YOR-robot/YOR.git
-cd YOR-Nero
+cd YOR
 ```
 If you already cloned without submodules:
 ```bash
