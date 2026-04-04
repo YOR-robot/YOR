@@ -273,6 +273,12 @@ class RotationMotor:
         self.last_cmd_frac = f
         self.dev.SetPosition(float(f))
 
+    def get_position_deg(self) -> float:
+        try:
+            return float(self.dev.GetAbsoluteEncoderPosition())
+        except Exception:
+            return float("nan")
+
     def get_position_rad(self) -> float:
         if not USE_FEEDBACK_FOR_STEER:
             frac_no_off = (self.last_cmd_frac - self.offset) % 1.0
@@ -286,6 +292,12 @@ class RotationMotor:
         except Exception:
             return float(frac_to_rad(self.last_cmd_frac))
 
+    def get_position_counts(self) -> float:
+        try:
+            return float(self.dev.GetPosition())
+        except Exception:
+            return float("nan")
+
 
 class DriveMotor:
     """Drive motor driven by SparkFlex velocity setpoint (PID on controller)."""
@@ -293,13 +305,24 @@ class DriveMotor:
     def __init__(self, can_if: str, can_id: int):
         self.dev = SparkFlex(can_if, can_id)
 
-        try:
-            if IdleMode and hasattr(self.dev, "SetIdleMode"):
+        if IdleMode and hasattr(self.dev, "SetIdleMode"):
+            try:
                 self.dev.SetIdleMode(IdleMode.kCoast)
-            if CtrlType and hasattr(self.dev, "SetCtrlType"):
+            except Exception:
+                pass
+                
+        if CtrlType and hasattr(self.dev, "SetCtrlType"):
+            try:
                 self.dev.SetCtrlType(CtrlType.kVelocity)
-        except Exception:
-            pass
+            except Exception:
+                pass
+                
+        # Request Status Frame 2 (velocity + position) at 20 ms
+        if hasattr(self.dev, "SetPeriodicStatus2Period"):
+            try:
+                self.dev.SetPeriodicStatus2Period(20)
+            except Exception:
+                pass
 
     def heartbeat(self) -> None:
         self.dev.Heartbeat()
@@ -310,6 +333,12 @@ class DriveMotor:
     def get_velocity_raw(self) -> float:
         try:
             return float(self.dev.GetVelocity())
+        except Exception:
+            return float("nan")
+
+    def get_position_counts(self) -> float:
+        try:
+            return float(self.dev.GetPosition())
         except Exception:
             return float("nan")
 

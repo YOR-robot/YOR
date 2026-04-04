@@ -58,7 +58,7 @@ def get_pose(sub):
     base_qt7 = pose_msg[0:7]
     base_transform = xyzw_xyz_to_matrix(base_qt7)
     translation = base_transform[:3, 3].astype(np.float32)
-    theta = float(-np.arctan2(base_transform[0, 0], base_transform[2, 0]))
+    theta = float(np.arctan2(-base_transform[2, 0], base_transform[0, 0])) % (2 * np.pi)
     return translation, theta, base_transform
 
 
@@ -225,7 +225,7 @@ class BaseController:
         k_theta: float = 2.1,
         ki_theta: float = 0.01,
         kd_theta: float = 0.2,
-        pos_tol: float = 0.02,
+        pos_tol: float = 0.05,   # 10 cm — comfortably above ZED pose noise (~3–5 cm at range)
         theta_tol: float = 0.03,
     ):
         self.origin = origin
@@ -239,7 +239,8 @@ class BaseController:
         self.pos_tol = pos_tol
         self.theta_tol = theta_tol
 
-        self.vel_alpha = 0.2
+        self.vel_alpha = 0.5   # was 0.2 — faster response to direction changes near goal
+                               # (0.2 was so sluggish that overshoot → oscillation)
 
         self._vel_lock = threading.Lock()
         self.last_target_velocity = np.zeros(3, dtype=float)
@@ -324,9 +325,9 @@ class BaseController:
     def _run(self):
         Ld_base: float = 0.32
         Ld_gain: float = 0.4
-        Ld_min: float = 0.20
+        Ld_min: float = 0.30   # was 0.20 — higher min prevents chasing a point under the nose
         Ld_max: float = 0.40
-        end_dist_tol: float = 0.08
+        end_dist_tol: float = 0.25  # was 0.08 — switch to MOVE_TO further out for smooth braking
         last_path_uid = None
 
         v_meas_filt = 0.0

@@ -1,10 +1,17 @@
 # yor.py
+import sys
 import functools
 import time
 import numpy as np
 import mink
 import atexit
 from pathlib import Path
+
+# Add project root to sys.path
+_HERE = Path(__file__).parent
+_ROOT = _HERE.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 # Import Base from either package layout (robot/base.py) or flat (base.py)
 from robot.base import Base
@@ -40,14 +47,6 @@ def require_zed(func):
 
     return wrapper
 
-# class x(BaseController):
-#     def __init__(self):
-#         super(self, BaseController).__init__(
-#             # contructor params
-#         )
-#         self.njhdj = dhajhd
-        
-
 
 class YOR():
     def __init__(
@@ -74,23 +73,18 @@ class YOR():
             grid_res=0.05,
             control_hz=20,
         )
-        # New Base uses SparkFlex drive (IDs 1–4) + rotation (IDs 5–8)
-        # base -> BaseMotorController
-        # Base(max_vel, max_accel, pose_host, pose_port)
-        # base thread: control thread for move_to, track_path, set_velocity
-            # these should interrupt each other
         self.base = self.base_controller.base
         self.no_arms = no_arms
         if not self.no_arms:
             _HERE = Path(__file__).parent
             self.left_arm = ArmNode(
                 can_port="can_left",
-                mjcf_path=(_HERE / "yor-description/robot-welded-base-and-lift.mjcf").as_posix(),
-                dynamixel_gripper=True,
+                mjcf_path=(_HERE / "yor-description/nero-welded-base-and-lift.mjcf").as_posix(),
+                dynamixel_gripper=False,
             )
             self.right_arm = ArmNode(
                 can_port="can_right",
-                mjcf_path=(_HERE / "yor-description/robot-welded-base-and-lift.mjcf").as_posix(),
+                mjcf_path=(_HERE / "yor-description/nero-welded-base-and-lift.mjcf").as_posix(),
                 is_left_arm=False,
                 dynamixel_gripper=False,
             )
@@ -121,12 +115,6 @@ class YOR():
         self.base_controller.mode = "BASE_VEL"
         self.base_controller.target_velocity = velocity
 
-    # @require_initialization   
-    # def follow_path(self, path = None):
-    #     self.base_controller.zed_sub_init()
-    #     self.base_controller._path_world = path
-    #     self.base_controller.mode = "PATH_FOLLOWING"
-    #     return {"ok": True, "n": 0 if path is None else len(path)}
     
     @require_initialization
     def follow_path(self, path=None):
@@ -421,26 +409,26 @@ class YOR():
         Returns dict with left/right ee poses and joint positions and lift position.
         Note: Lift position is 0.0 as new hardware doesn't support position feedback.
         """
-        row = [0.0] * (1 + 7 + 6 + 1 + 7 + 6 + 1 + 1)
+        row = [0.0] * (1 + 7 + 7 + 1 + 7 + 7 + 1 + 1)
         if not self.no_arms:
             row[0] = time.time()
             row[1:8] = self.left_arm.get_ee_pose().wxyz_xyz.tolist()
-            row[8:14] = self.left_arm.get_joint_positions().tolist()
-            row[14] = self.left_arm.get_gripper_pose()
-            row[15:22] = self.right_arm.get_ee_pose().wxyz_xyz.tolist()
-            row[22:28] = self.right_arm.get_joint_positions().tolist()
-            row[28] = self.right_arm.get_gripper_pose()
-            row[29] = 0.0  # lift position not available on new hardware
+            row[8:15] = self.left_arm.get_joint_positions().tolist()
+            row[15] = self.left_arm.get_gripper_pose()
+            row[16:23] = self.right_arm.get_ee_pose().wxyz_xyz.tolist()
+            row[23:30] = self.right_arm.get_joint_positions().tolist()
+            row[30] = self.right_arm.get_gripper_pose()
+            row[31] = 0.0  # lift position not available on new hardware
             return row
         else:
             row[0] = time.time()
             row[1:8] = [0.90724, -0.41142, 0.075, -0.04495, 0.10741, 0.11358, 0.89066] # roughly tucked position
-            row[8:14] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # tucked position
-            row[14] = 1.0 # fully open
-            row[15:22] = [0.90029, 0.42914, 0.06059, 0.04051, 0.10338, -0.53731, 0.89969]
-            row[22:28] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # tucked position
-            row[28] = 1.0
-            row[29] = 0.0  # lift position not available on new hardware
+            row[8:15] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # tucked position
+            row[15] = 1.0 # fully open
+            row[16:23] = [0.90029, 0.42914, 0.06059, 0.04051, 0.10338, -0.53731, 0.89969]
+            row[23:30] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # tucked position
+            row[30] = 1.0
+            row[31] = 0.0  
             return row
 
     @require_initialization
@@ -457,12 +445,54 @@ class YOR():
         v = np.asarray(self.base_controller.target_velocity, dtype=float)
         return v.tolist(), time.time()
 
+    @require_initialization
+    def get_base_encoders(self) -> dict:
+        """Return steer positions (rad) and drive velocities (raw) for all 4 modules."""
+        base = self.base
+        return {
+            "timestamp": time.time(),
+            "steer_rad":    [m.get_position_rad()    for m in base.rotation_motors],
+            "steer_deg":    [m.get_position_deg()    for m in base.rotation_motors],
+            "steer_counts": [m.get_position_counts() for m in base.rotation_motors],
+            "drive_vel":    [m.get_velocity_raw()    for m in base.drive_motors],
+            "drive_counts": [m.get_position_counts() for m in base.drive_motors],
+            "lift_height_m": base.get_lift_height(),
+        }
+
+    @require_initialization
+    def get_pose(self) -> dict:
+        """Return ZED IMU-fused pose: x, y, theta (yaw in radians).
+        x = translation[0], y = translation[2] (robot moves in XZ plane).
+        """
+        if self.pose is None:
+            return {"x": None, "y": None, "theta": None}
+        translation, theta, _ = self.pose
+        return {
+            "x": float(translation[0]),
+            "y": float(translation[2]),
+            "theta": float(theta),
+        }
+
 
 def main():    
     yor = YOR(no_arms=False)
     yor.init()
-    server = RPCServer(yor, port=YOR_PORT, threaded = True)
-    atexit.register(server.stop)
+    server = RPCServer(yor, port=YOR_PORT, threaded=True)
+    
+    def graceful_shutdown():
+        print("\nRPC Server stopping...")
+        server.stop()
+        
+        if not yor.no_arms:
+            if hasattr(yor, 'left_arm') and yor.left_arm is not None:
+                input("\n[YOR] Press ENTER to drop LEFT arm...")
+                yor.left_arm.stop()
+            
+            if hasattr(yor, 'right_arm') and yor.right_arm is not None:
+                input("\n[YOR] Press ENTER to drop RIGHT arm...")
+                yor.right_arm.stop()
+                
+    atexit.register(graceful_shutdown)
     server.start()
     while True:
         time.sleep(1)

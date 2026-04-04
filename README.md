@@ -1,8 +1,4 @@
-<p align="center">
-  <img src="yor_header.jpeg" alt="YOR - Your Own Robot" width="100%">
-</p>
-
-# YOR - Your Own Robot
+# YOR Robot Repository
 
 This repository contains the codebase for the YOR robot, supporting both high-fidelity MuJoCo simulation and physical robot control via CAN bus.
 
@@ -13,13 +9,13 @@ This repository contains the codebase for the YOR robot, supporting both high-fi
 - **Python:** Version 3.10 or higher.
 - **Hardware (Physical only):**
   - CANable or compatible USB-to-CAN adapter.
-  - AgileX Piper arm(s).
+  - AgileX Nero arm(s).
   - SparkFlex/SparkMax motor controllers.
 
 ### 1.2 Cloning the Repository
 This repository uses submodules. Clone recursively:
 ```bash
-git clone --recursive https://github.com/YOR-robot/YOR.git
+git clone -b nero --recursive https://github.com/YOR-robot/YOR.git
 cd YOR
 ```
 If you already cloned without submodules:
@@ -33,8 +29,8 @@ For **Linux systems with physical robot support**, we recommend using conda to m
 
 **1. Create Conda Environment:**
 ```bash
-conda create -n yor python=3.10 -y
-conda activate yor
+conda create -n yor-nero python=3.10 -y
+conda activate yor-nero
 ```
 
 **2. Install System Dependencies:**
@@ -56,13 +52,13 @@ pip install .
 cd ..
 ```
 
-Install `piperlib` (requires setting environment variable):
+Install `nerolib` into the active environment:
 ```bash
-export PIPERLIB_CONDA_ENV=$CONDA_PREFIX
-cd piperlib
-pip install -e . --no-build-isolation
+cd nerolib
+bash install.sh
 cd ..
 ```
+*(This will automatically install dependencies into your active `yor-nero` environment.)*
 
 **5. Install Main Robot Package:**
 ```bash
@@ -90,7 +86,7 @@ source .venv/bin/activate
 ```
 
 > [!NOTE]
-> The `uv` method installs only simulation dependencies. Physical robot drivers (`sparkcan_py` and `piperlib`) must be installed separately following section 1.3 steps 4-5.
+> The `uv` method installs only simulation dependencies. Physical robot drivers (`sparkcan_py` and `nerolib`) must be installed separately following section 1.3 steps 4-5.
 
 ### 1.5 Verify Installation
 
@@ -101,7 +97,7 @@ python -c "import robot; print('Robot package installed successfully')"
 
 For physical robot setup, also verify:
 ```bash
-python -c "import piperlib; import sparkcan_py; print('Hardware drivers installed successfully')"
+python -c "import nerolib; import sparkcan_py; print('Hardware drivers installed successfully')"
 ```
 
 ### 1.6 Navigation & Mapping Setup (Optional)
@@ -219,8 +215,8 @@ python robot/teleop/oculus_bimanual_teleop.py
 - You are trying to install hardware drivers on a non-Linux OS. Use the simulation (`robot/yor_mujoco.py`) instead.
 
 **"CMake Error: Could NOT find Python3 (missing: Python3_NumPy_INCLUDE_DIRS)"**
-- When installing `piperlib`, use `pip install -e . --no-build-isolation` instead of regular `pip install .`
-- Ensure you've set `PIPERLIB_CONDA_ENV=$CONDA_PREFIX` before installation
+- When installing `nerolib`, use `bash install.sh` from the `nerolib/` directory
+- Ensure your conda environment is activated before running the install script
 
 **"undefined reference to GLIBCXX_3.4.31"**
 - Install the conda C++ compiler: `conda install -y -c conda-forge gxx cxx-compiler`
@@ -231,8 +227,5 @@ python robot/teleop/oculus_bimanual_teleop.py
 - Check if port 5557 is blocked or already in use
 
 **Import errors after installation**
-- Verify your environment is activated: `conda activate yor` or `source .venv/bin/activate`
+- Verify your environment is activated: `conda activate yor-nero` or `source .venv/bin/activate`
 - Try reinstalling in editable mode: `pip install -e .`
-
-- Website: [yourownrobot.ai](https://yourownrobot.ai)
-- Paper: [arXiv:2602.11150](https://arxiv.org/abs/2602.11150)

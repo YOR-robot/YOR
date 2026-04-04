@@ -3,7 +3,6 @@ import numpy as np
 from typing import Optional
 from pathlib import Path
 
-# from piperlib import PiperJointController, RobotConfigFactory, ControllerConfigFactory, JointState, Gain
 from piper_control import piper_interface, piper_init
 import mink
 
