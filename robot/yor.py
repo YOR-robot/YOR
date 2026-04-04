@@ -47,14 +47,6 @@ def require_zed(func):
 
     return wrapper
 
-# class x(BaseController):
-#     def __init__(self):
-#         super(self, BaseController).__init__(
-#             # contructor params
-#         )
-#         self.njhdj = dhajhd
-        
-
 
 class YOR():
     def __init__(
@@ -81,11 +73,6 @@ class YOR():
             grid_res=0.05,
             control_hz=20,
         )
-        # New Base uses SparkFlex drive (IDs 1–4) + rotation (IDs 5–8)
-        # base -> BaseMotorController
-        # Base(max_vel, max_accel, pose_host, pose_port)
-        # base thread: control thread for move_to, track_path, set_velocity
-            # these should interrupt each other
         self.base = self.base_controller.base
         self.no_arms = no_arms
         if not self.no_arms:
@@ -128,12 +115,6 @@ class YOR():
         self.base_controller.mode = "BASE_VEL"
         self.base_controller.target_velocity = velocity
 
-    # @require_initialization   
-    # def follow_path(self, path = None):
-    #     self.base_controller.zed_sub_init()
-    #     self.base_controller._path_world = path
-    #     self.base_controller.mode = "PATH_FOLLOWING"
-    #     return {"ok": True, "n": 0 if path is None else len(path)}
     
     @require_initialization
     def follow_path(self, path=None):
@@ -447,7 +428,7 @@ class YOR():
             row[16:23] = [0.90029, 0.42914, 0.06059, 0.04051, 0.10338, -0.53731, 0.89969]
             row[23:30] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # tucked position
             row[30] = 1.0
-            row[31] = 0.0  # lift position not available on new hardware
+            row[31] = 0.0  
             return row
 
     @require_initialization
@@ -463,6 +444,34 @@ class YOR():
         # returns ([vx, vy, omega], timestamp)
         v = np.asarray(self.base_controller.target_velocity, dtype=float)
         return v.tolist(), time.time()
+
+    @require_initialization
+    def get_base_encoders(self) -> dict:
+        """Return steer positions (rad) and drive velocities (raw) for all 4 modules."""
+        base = self.base
+        return {
+            "timestamp": time.time(),
+            "steer_rad":    [m.get_position_rad()    for m in base.rotation_motors],
+            "steer_deg":    [m.get_position_deg()    for m in base.rotation_motors],
+            "steer_counts": [m.get_position_counts() for m in base.rotation_motors],
+            "drive_vel":    [m.get_velocity_raw()    for m in base.drive_motors],
+            "drive_counts": [m.get_position_counts() for m in base.drive_motors],
+            "lift_height_m": base.get_lift_height(),
+        }
+
+    @require_initialization
+    def get_pose(self) -> dict:
+        """Return ZED IMU-fused pose: x, y, theta (yaw in radians).
+        x = translation[0], y = translation[2] (robot moves in XZ plane).
+        """
+        if self.pose is None:
+            return {"x": None, "y": None, "theta": None}
+        translation, theta, _ = self.pose
+        return {
+            "x": float(translation[0]),
+            "y": float(translation[2]),
+            "theta": float(theta),
+        }
 
 
 def main():    
