@@ -3,7 +3,7 @@
 import time
 import argparse
 import numpy as np
-from robot.yor import YOR
+from yor import YOR
 
 def main():
     parser = argparse.ArgumentParser(description="Fetch and display telemetry from the YOR robot base.")
